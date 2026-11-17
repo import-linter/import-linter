@@ -3,7 +3,6 @@ import importlib.util
 import itertools
 import os
 from collections.abc import Iterable, Sequence, Set
-from dataclasses import dataclass
 from copy import copy, deepcopy
 from typing import Any
 import contextlib
@@ -25,25 +24,13 @@ from .ports.reporting import Report
 from .rendering import render_exception, render_report, format_duration
 from ..domain.dotfile import DotGraph, Edge, EdgeArrowhead, EdgeStyle
 from .sentinels import NotSupplied
-from .user_options import InvalidUserOptions, UserOptions
+from .user_options import ConfigSource, InvalidUserOptions, UserOptions
 
 # Public functions
 # ----------------
 
 SUCCESS = True
 FAILURE = False
-
-
-@dataclass(frozen=True)
-class ConfigSource:
-    """
-    The user options read from a single configuration file.
-
-    The filename is None if the file was found using the default search strategy.
-    """
-
-    filename: str | None
-    user_options: UserOptions
 
 
 def lint_imports(
@@ -433,6 +420,7 @@ def _display_filename(filename: str | None) -> str:
 
 def _normalize_user_options(user_options: UserOptions) -> UserOptions:
     normalized_options = copy(user_options)
+    normalized_options.session_options = dict(user_options.session_options)
     if "root_packages" not in normalized_options.session_options:
         normalized_options.session_options["root_packages"] = [
             normalized_options.session_options["root_package"]

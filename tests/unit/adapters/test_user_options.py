@@ -210,3 +210,15 @@ def test_toml_file_reader(contents, expected_options):
 
     options = TomlFileUserOptionReader().read_options()
     assert expected_options == options
+
+
+def test_discovered_source_retains_filename():
+    settings.configure(
+        FILE_SYSTEM=FakeFileSystem(
+            content_map={"/project/.importlinter": "[importlinter]\nroot_package = example"},
+            working_directory="/project",
+        )
+    )
+    source = IniFileUserOptionReader().read_source()
+    assert source is not None
+    assert source.filename == "/project/.importlinter"

@@ -6,13 +6,19 @@ from typing import Any
 from importlinter.application import file_finding
 from importlinter.application.app_config import settings
 from importlinter.application.ports import user_options as ports
-from importlinter.application.user_options import UserOptions
+from importlinter.application.user_options import ConfigSource, InvalidUserOptions, UserOptions
 
 
 class AbstractUserOptionReader(ports.UserOptionReader):
     potential_config_filenames: list[str]
 
     def read_options(self, config_filename: str | None = None) -> UserOptions | None:
+        source = self.read_source(config_filename)
+        return source.user_options if source else None
+
+    def read_source(
+        self, config_filename: str | None = None, *, fragment: bool = False
+    ) -> ConfigSource | None:
         if config_filename:
             config_filenames = file_finding.find_any(config_filename)
             if not config_filenames:
@@ -24,14 +30,16 @@ class AbstractUserOptionReader(ports.UserOptionReader):
                 return None
 
         for config_filename in config_filenames:
-            options = self._read_config_filename(config_filename)
+            options = self._read_config_filename(config_filename, fragment=fragment)
             if options:
-                return options
+                return ConfigSource(config_filename, options)
 
         return None
 
     @abc.abstractmethod
-    def _read_config_filename(self, config_filename: str) -> UserOptions | None:
+    def _read_config_filename(
+        self, config_filename: str, *, fragment: bool = False
+    ) -> UserOptions | None:
         raise NotImplementedError
 
 
@@ -43,10 +51,14 @@ class IniFileUserOptionReader(AbstractUserOptionReader):
     potential_config_filenames = ["setup.cfg", ".importlinter"]
     section_name = "importlinter"
 
-    def _read_config_filename(self, config_filename: str) -> UserOptions | None:
+    def _read_config_filename(
+        self, config_filename: str, *, fragment: bool = False
+    ) -> UserOptions | None:
         config = configparser.ConfigParser()
         file_contents = settings.FILE_SYSTEM.read(config_filename)
         config.read_string(file_contents)
+        if fragment and self.section_name not in config.sections():
+            config.add_section(self.section_name)
         if self.section_name in config.sections():
             return self._build_from_config(config)
         return None
@@ -80,7 +92,9 @@ class TomlFileUserOptionReader(AbstractUserOptionReader):
     section_name = "importlinter"
     potential_config_filenames = ["pyproject.toml"]
 
-    def _read_config_filename(self, config_filename: str) -> UserOptions | None:
+    def _read_config_filename(
+        self, config_filename: str, *, fragment: bool = False
+    ) -> UserOptions | None:
         file_contents = settings.FILE_SYSTEM.read(config_filename, encoding="utf-8")
         data = tomllib.loads(file_contents)
 
@@ -89,7 +103,11 @@ class TomlFileUserOptionReader(AbstractUserOptionReader):
         if not session_options:
             return None
 
+        if not isinstance(session_options, dict):
+            raise InvalidUserOptions(f"Invalid import-linter table in {config_filename}.")
         contracts = session_options.pop("contracts", [])
+        if not isinstance(contracts, list) or any(not isinstance(c, dict) for c in contracts):
+            raise InvalidUserOptions(f"Invalid contracts in {config_filename}: expected tables.")
 
         self._normalize_booleans(session_options)
         for contract in contracts:
