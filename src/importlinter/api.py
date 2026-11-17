@@ -13,7 +13,7 @@ configuration.configure()
 
 def read_configuration(config_filename: str | None = None) -> dict:
     """
-    Return a dictionary containing configuration from the supplied file.
+    Return effective configuration, including contracts from declared contract_files.
 
     If no filename is supplied, look in the default location
     (see importlinter.cli.lint_imports).

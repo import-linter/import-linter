@@ -55,3 +55,7 @@ A dictionary with two keys:
     - Any other contract-specific configuration.
 
 **Return type:** dict
+
+If the parent declares `contract_files`, the returned contracts include inline contracts followed by
+referenced contracts in declaration order. `session_options` contains inherited parent settings without
+`contract_files`. The two-key return shape and contract IDs are unchanged; IDs may repeat across files.
