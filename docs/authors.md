@@ -39,6 +39,7 @@
 * [Sebastian Penhouet](https://github.com/Spenhouet)
 * [Trevin Chow](https://github.com/tmchow)
 * [Uberto Barbini](https://github.com/uberto)
+* [Victor Dauchy](https://github.com/vdauchy)
 * [Viraj Ravani](https://github.com/v3ravani)
 * [Vladimir Roshchin](https://github.com/even-even)
 * [Yunus Emre Ozen](https://github.com/ozenyunus35)
