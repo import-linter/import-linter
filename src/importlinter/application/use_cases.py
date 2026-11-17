@@ -102,21 +102,26 @@ def read_user_options(config_filename: str | None = None) -> UserOptions:
     Raises:
         FileNotFoundError if no configuration file could be found.
     """
+    sources = _read_config_sources(config_filename, ())
+    return UserOptions(
+        session_options=dict(sources[0].user_options.session_options),
+        contracts_options=[c for source in sources for c in source.user_options.contracts_options],
+    )
+
+
+def _read_raw_source(
+    config_filename: str | None = None, *, fragment: bool = False
+) -> ConfigSource:
     readers = settings.USER_OPTION_READERS.values()
     if config_filename:
-        if config_filename.endswith(".toml"):
-            readers = [settings.USER_OPTION_READERS["toml"]]
-        else:
-            readers = [settings.USER_OPTION_READERS["ini"]]
-
+        kind = "toml" if config_filename.endswith(".toml") else "ini"
+        readers = [settings.USER_OPTION_READERS[kind]]
     for reader in readers:
-        options = reader.read_options(config_filename=config_filename)
-        if options:
-            normalized_options = _normalize_user_options(options)
-            return normalized_options
-    if config_filename:
-        raise FileNotFoundError(f"Could not read any configuration from {config_filename}.")
-    raise FileNotFoundError("Could not read any configuration.")
+        source = reader.read_source(config_filename, fragment=fragment)
+        if source:
+            return source
+    location = config_filename or "the default locations"
+    raise FileNotFoundError(f"Could not read any configuration from {location}.")
 
 
 def create_report(
@@ -228,21 +233,96 @@ def _read_config_sources(
     config_filename: str | None, config_filenames: Sequence[str]
 ) -> list[ConfigSource]:
     filenames = ([config_filename] if config_filename else []) + list(config_filenames)
-    if not filenames:
-        return [ConfigSource(filename=None, user_options=read_user_options())]
-
-    config_sources: list[ConfigSource] = []
-    seen_paths: set[str] = set()
-    for filename in filenames:
-        # The same file may be passed twice, e.g. via overlapping shell globs.
-        path = _absolute_path(filename)
-        if path in seen_paths:
+    parents: list[ConfigSource] = []
+    parent_paths: set[str] = set()
+    requested: Sequence[str | None] = filenames or [None]
+    for filename in requested:
+        if filename and _absolute_path(filename) in parent_paths:
             continue
-        seen_paths.add(path)
-        config_sources.append(
-            ConfigSource(filename=filename, user_options=read_user_options(filename))
+        source = _read_raw_source(filename)
+        if source.filename:
+            parent_paths.add(_absolute_path(source.filename))
+        parents.append(source)
+
+    # Check parent/fragment collisions before normalizing any standalone fragment.
+    for parent in parents:
+        references = _contract_file_references(parent)
+        if parent.filename and isinstance(references, list):
+            for reference in references:
+                if isinstance(reference, str):
+                    target = os.path.join(os.path.dirname(parent.filename), reference)
+                    if _absolute_path(target) in parent_paths:
+                        raise InvalidUserOptions(
+                            f"Contract file {target} is also an independent configuration."
+                        )
+
+    sources: list[ConfigSource] = []
+    owners: dict[str, str] = {}
+    for parent in parents:
+        session = dict(parent.user_options.session_options)
+        session.pop("contract_files", None)
+        references = _contract_file_references(parent)
+        if references and not parent.filename:
+            raise InvalidUserOptions(
+                "contract_files requires a reader that supplies its filename."
+            )
+        normalized = _normalize_user_options(UserOptions(session, []))
+        display_parent = parent.filename if filenames or references else None
+        group = [
+            ConfigSource(
+                display_parent,
+                UserOptions(
+                    dict(normalized.session_options), parent.user_options.contracts_options
+                ),
+            )
+        ]
+        for reference in references:
+            assert parent.filename is not None
+            filename = os.path.join(os.path.dirname(parent.filename), reference)
+            identity = _absolute_path(filename)
+            if identity in owners:
+                if owners[identity] == parent.filename:
+                    continue
+                raise InvalidUserOptions(
+                    f"Contract file {filename} is referenced by multiple parents."
+                )
+            owners[identity] = parent.filename
+            try:
+                fragment = _read_raw_source(filename, fragment=True)
+            except Exception as exc:
+                raise InvalidUserOptions(
+                    f"Could not load contract file {filename}: {exc}"
+                ) from exc
+            if fragment.user_options.session_options:
+                raise InvalidUserOptions(
+                    f"Contract file {filename} may not declare session settings."
+                )
+            effective = ConfigSource(
+                filename,
+                UserOptions(
+                    dict(normalized.session_options), fragment.user_options.contracts_options
+                ),
+            )
+            _validate_contracts_present(effective)
+            group.append(effective)
+        if references:
+            for source in group:
+                _validate_contract_ids(source)
+        sources.extend(
+            source for source in group if source.user_options.contracts_options or not references
         )
-    return config_sources
+    return sources
+
+
+def _contract_file_references(source: ConfigSource) -> list[str]:
+    references = source.user_options.session_options.get("contract_files", [])
+    if isinstance(references, str) and source.filename and not source.filename.endswith(".toml"):
+        references = references.splitlines()
+    if not isinstance(references, list) or any(
+        not isinstance(path, str) or not path.strip() for path in references
+    ):
+        raise InvalidUserOptions(f"Invalid contract_files in {source.filename}: expected paths.")
+    return references
 
 
 def _validate_contract_ids(config_source: ConfigSource) -> None:
