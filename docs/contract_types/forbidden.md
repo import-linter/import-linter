@@ -17,13 +17,19 @@ Contracts may define `source_modules` and `forbidden_modules` that 'overlap':
 either the same module is in both; or one module is a subpackage that contains the other.
 This is handled differently depending on the value of `as_packages`:
 
-- When `as_packages` is `True` (the default), the source module is allowed to import the forbidden module **if they share descendants**. For example,
-`mypackage.one` will *not* be forbidden from importing `mypackage.one.blue`, or `mypackage.one` itself, even if
-those modules are listed in `forbidden_modules`.
+- When `as_packages` is `True` (the default), imports **within the overlap** are allowed. The overlap is the inner module and
+its descendants: they are both source and forbidden modules, so they are allowed to import each other. Imports between the
+overlap and the rest of the outer package are still forbidden. For example:
+    - With source module `mypackage` and forbidden module `mypackage.one`, `mypackage.one` is allowed to import
+    `mypackage.one.blue`, but `mypackage.two` is *not* allowed to import `mypackage.one.blue`.
+    - With source module `mypackage.one` and forbidden module `mypackage`, `mypackage.one.blue` is allowed to import `mypackage.one`,
+    but is *not* allowed to import `mypackage.two`.
 - When `as_packages` is `False`, a source module **is allowed to import itself**, even if it's listed in forbidden modules.  For example, a source module
 `mypackage.one` will *not* be forbidden `mypackage.one`, even if those modules are listed in `forbidden_modules`.
 
-This situation is most likely to occur when using wildcards.
+This situation is most likely to occur when using wildcards. For example, if `source_modules` and `forbidden_modules` are both
+`mypackage.*`, then the modules `mypackage.one` and `mypackage.two` are forbidden from importing each other, but each is
+allowed to import its own descendants.
 
 ## Examples
 
@@ -60,8 +66,9 @@ This situation is most likely to occur when using wildcards.
     [importlinter:contract:forbidden-descendants]
     # This contract prevents mypackage.one from importing
     # anything from its descendants.
-    # Note as_packages must be false, otherwise this contract would have no effect
-    # due to the rules around overlapping modules.
+    # Note as_packages must be false, so that only mypackage.one itself is forbidden from
+    # importing its descendants. Otherwise, the descendants would be forbidden from importing
+    # each other, due to the rules around overlapping modules.
     name = Forbidden descendants contract
     type = forbidden
     source_modules =
@@ -127,8 +134,9 @@ This situation is most likely to occur when using wildcards.
     [[tool.importlinter.contracts]]
     # This contract prevents mypackage.one from importing
     # anything from its descendants.
-    # Note as_packages must be False, otherwise this contract would have no effect
-    # due to the rules around overlapping modules.
+    # Note as_packages must be False, so that only mypackage.one itself is forbidden from
+    # importing its descendants. Otherwise, the descendants would be forbidden from importing
+    # each other, due to the rules around overlapping modules.
     name = "Forbidden descendants contract"
     type = "forbidden"
     source_modules = [
