@@ -16,26 +16,6 @@ from importlinter.domain.imports import Module
 from ._common import format_line_numbers
 
 
-def _get_package_overlap(source_module: Module, forbidden_module: Module) -> Module | None:
-    """
-    Return the module that the source and forbidden modules have in common, when treated as
-    packages, if any.
-
-    The packages overlap if they are the same module, or if one contains the other. The overlap is
-    then the inner of the two modules, as every module in its package is in both packages.
-    """
-    # Compare names, rather than using Module.is_in_package, as this is called for every pair of
-    # source and forbidden modules.
-    source_name, forbidden_name = source_module.name, forbidden_module.name
-    if source_name == forbidden_name:
-        return source_module
-    if source_name.startswith(f"{forbidden_name}."):
-        return source_module
-    if forbidden_name.startswith(f"{source_name}."):
-        return forbidden_module
-    return None
-
-
 class ForbiddenContract(Contract):
     """
     Forbidden contracts check that one set of modules are not imported by another set of modules.
@@ -438,6 +418,26 @@ def _get_package_overlaps(
     }
 
     return reduced_overlaps
+
+
+def _get_package_overlap(source_module: Module, forbidden_module: Module) -> Module | None:
+    """
+    Return the module that the source and forbidden modules have in common, when treated as
+    packages, if any.
+
+    The packages overlap if they are the same module, or if one contains the other. The overlap is
+    then the inner of the two modules, as every module in its package is in both packages.
+    """
+    # Compare names, rather than using Module.is_in_package, as this is called for every pair of
+    # source and forbidden modules.
+    source_name, forbidden_name = source_module.name, forbidden_module.name
+    if source_name == forbidden_name:
+        return source_module
+    if source_name.startswith(f"{forbidden_name}."):
+        return source_module
+    if forbidden_name.startswith(f"{source_name}."):
+        return forbidden_module
+    return None
 
 
 def _are_within_same_overlap(importer: str, imported: str, package_overlaps: set[str]) -> bool:
