@@ -15,23 +15,24 @@ from importlinter.domain.imports import Module
 from ._common import format_line_numbers
 
 
-def _modules_overlap(
-    source_module: Module, forbidden_module: Module, *, as_packages: bool
-) -> bool:
+def _get_package_overlap(source_module: Module, forbidden_module: Module) -> Module | None:
     """
-    Return whether the source and forbidden modules overlap: either they are the same module, or,
-    when treated as packages, one contains the other.
+    Return the module that the source and forbidden modules have in common, when treated as
+    packages, if any.
 
-    Overlapping pairs do not describe a forbiddable import and are skipped by the contract. See the
-    forbidden contract documentation for details.
+    The packages overlap if they are the same module, or if one contains the other. The overlap is
+    then the inner of the two modules, as every module in its package is in both packages.
     """
-    if source_module == forbidden_module:
-        return True
-    if as_packages:
-        return source_module.is_in_package(forbidden_module) or forbidden_module.is_in_package(
-            source_module
-        )
-    return False
+    # Compare names, rather than using Module.is_in_package, as this is called for every pair of
+    # source and forbidden modules.
+    source_name, forbidden_name = source_module.name, forbidden_module.name
+    if source_name == forbidden_name:
+        return source_module
+    if source_name.startswith(f"{forbidden_name}."):
+        return source_module
+    if forbidden_name.startswith(f"{source_name}."):
+        return forbidden_module
+    return None
 
 
 class ForbiddenContract(Contract):
@@ -114,14 +115,15 @@ class ForbiddenContract(Contract):
         def sort_key(module):
             return module.name
 
+        as_packages: bool = self.as_packages  # type: ignore
+
         for source_module in sorted(source_modules, key=sort_key):
             for forbidden_module in self._find_forbidden_modules_to_visit(
                 source_module, forbidden_modules_in_graph, graph, verbose
             ):
-                if _modules_overlap(
-                    source_module,
-                    forbidden_module,
-                    as_packages=self.as_packages,  # type: ignore
+                # Without as_packages, only the same module overlaps.
+                if source_module == forbidden_module or (
+                    as_packages and _get_package_overlap(source_module, forbidden_module)
                 ):
                     output.verbose_print(
                         verbose,
