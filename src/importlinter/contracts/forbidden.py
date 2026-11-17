@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Collection, Iterable, Iterator
+from itertools import islice
 
 from grimp import ImportGraph
 
@@ -40,11 +41,12 @@ class ForbiddenContract(Contract):
     Forbidden contracts check that one set of modules are not imported by another set of modules.
     Indirect imports will also be checked.
 
-    Where the source and forbidden modules overlap (the same module is in both, or one is a
-    subpackage containing the other), the source module is not forbidden from importing the
-    forbidden module; such pairs are skipped. This allows a wildcard such as ``mypackage.*`` to be
-    used as a forbidden module even when a source module is one of the modules it matches. See the
-    documentation for details.
+    Where the source and forbidden modules overlap (the same module is in both, or, when treated as
+    packages, one contains the other), imports within the overlap are not forbidden. For example,
+    a source module ``mypackage`` may not import a forbidden module ``mypackage.foo`` from anywhere
+    outside ``mypackage.foo``, but ``mypackage.foo`` may import itself. This allows a wildcard such
+    as ``mypackage.*`` to be used as a forbidden module even when a source module is one of the
+    modules it matches. See the documentation for details.
 
     Configuration options:
         - source_modules:    A set of Modules that should not import the forbidden modules.
@@ -117,19 +119,44 @@ class ForbiddenContract(Contract):
 
         as_packages: bool = self.as_packages  # type: ignore
 
+        # Imports within any overlap between the source and forbidden modules are allowed.
+        # The overlaps are found across *all* the source and forbidden modules, rather than for
+        # the pair being checked. Otherwise a wildcard contract would report false positives. For
+        # example, with source `**` and forbidden `mypackage.catalog`, the pair
+        # (`mypackage.catalog.api`, `mypackage.catalog`) overlaps only on `mypackage.catalog.api`,
+        # so the pair on its own would report BROKEN `catalog.api -> catalog.internal`.
+        # But that import is within `mypackage.catalog`, so the contract should be KEPT.
+        # That import overlaps via the pair (`mypackage.catalog`, `mypackage.catalog`).
+        #
+        # Without as_packages, only the same module overlaps, and those pairs are skipped below.
+        package_overlaps = (
+            _get_package_overlaps(source_modules, forbidden_modules_in_graph)
+            if as_packages
+            else set()
+        )
+
         for source_module in sorted(source_modules, key=sort_key):
             for forbidden_module in self._find_forbidden_modules_to_visit(
                 source_module, forbidden_modules_in_graph, graph, verbose
             ):
-                # Without as_packages, only the same module overlaps.
-                if source_module == forbidden_module or (
-                    as_packages and _get_package_overlap(source_module, forbidden_module)
-                ):
+                if source_module == forbidden_module:
                     output.verbose_print(
                         verbose,
                         f"Skipping overlapping modules {source_module} and {forbidden_module}.",
                     )
                     continue
+                if as_packages and _are_within_same_overlap(
+                    source_module.name, forbidden_module.name, package_overlaps
+                ):
+                    # Every chain between these modules would be within an overlap, so allowed.
+                    # (Skipping now avoids a search whose results would all be discarded.)
+                    output.verbose_print(
+                        verbose,
+                        f"Skipping {source_module} and {forbidden_module}, as imports between "
+                        "them are within an overlap of the source and forbidden modules.",
+                    )
+                    continue
+
                 output.verbose_print(
                     verbose,
                     f"Searching for import chains from {source_module} to {forbidden_module}...",
@@ -146,14 +173,25 @@ class ForbiddenContract(Contract):
                             source_module,
                             forbidden_module,
                             graph,
-                            self.as_packages,  # type:ignore
+                            as_packages,
                         )
                     else:
                         chains = graph.find_shortest_chains(
                             importer=source_module.name,
                             imported=forbidden_module.name,
-                            as_packages=self.as_packages,  # type:ignore
+                            as_packages=as_packages,
+                            # If one module contains the other, search between the inner package
+                            # and the rest of the outer package.
+                            exclude_shared_descendants=True,
                         )
+                    # If the modules overlap (one contains the other), the search above also
+                    # includes chains within the overlap. Those are allowed, so discard them.
+                    # Chains within an overlap with a different pair are discarded here too.
+                    chains = {
+                        chain
+                        for chain in chains
+                        if not _are_within_same_overlap(chain[0], chain[-1], package_overlaps)
+                    }
                     if chains:
                         is_kept = False
                         for chain in sorted(chains):
@@ -310,6 +348,27 @@ class ForbiddenContract(Contract):
 
         forbidden_module_names_to_visit = imported_names & forbidden_module_names
 
+        if as_packages:
+            # The quick check above can wrongly rule out a forbidden module that overlaps with the
+            # source module (the same module, or one contains the other).
+            #
+            # When treating the source module as a package, grimp only reports imports of modules
+            # *outside* that package. So an import between two modules inside the source package
+            # is invisible to the quick check. Such an import can still be forbidden. For example,
+            # with source `mypackage` and forbidden `mypackage.catalog`, this is a violation:
+            #
+            #     mypackage.other -> mypackage.catalog.internal
+            #
+            # but it is within the source package, so `mypackage.catalog` would never appear in
+            # `imported_names`.
+            #
+            # So always visit the overlapping forbidden modules, and let the real search decide.
+            forbidden_module_names_to_visit |= {
+                forbidden_module.name
+                for forbidden_module in forbidden_modules
+                if _get_package_overlap(source_module, forbidden_module)
+            }
+
         return [Module(name) for name in sorted(forbidden_module_names_to_visit)]
 
     def _get_direct_chains(
@@ -350,9 +409,73 @@ class ForbiddenContract(Contract):
         return importer_modules
 
 
+def _get_package_overlaps(
+    source_modules: Iterable[Module], forbidden_modules: Collection[Module]
+) -> set[str]:
+    """
+    Return the names of the outermost modules that overlap between any source and forbidden
+    module, when treated as packages.
+
+    Overlaps nested inside others are dropped, so the packages of the result are disjoint: each
+    module is in the package of at most one overlap.
+    """
+    overlaps = {
+        overlap.name
+        for source_module in source_modules
+        for forbidden_module in forbidden_modules
+        if (overlap := _get_package_overlap(source_module, forbidden_module))
+    }
+
+    # Drop any overlap that is inside another overlap, as the outer one already covers it. For
+    # example, given `mypackage.one` and `mypackage.one.two`, keep only `mypackage.one`. The first
+    # name yielded by _get_name_and_ancestors is the overlap itself, so skip it.
+    reduced_overlaps = {
+        overlap
+        for overlap in overlaps
+        if not any(
+            ancestor in overlaps for ancestor in islice(_get_name_and_ancestors(overlap), 1, None)
+        )
+    }
+
+    return reduced_overlaps
+
+
+def _are_within_same_overlap(importer: str, imported: str, package_overlaps: set[str]) -> bool:
+    """
+    Return whether both modules are in the package of the same overlap.
+
+    Imports between such modules are allowed. The overlaps must be disjoint, as returned by
+    _get_package_overlaps.
+    """
+    if not package_overlaps:
+        # Quick exit, as this is called for every pair of modules, and every chain.
+        return False
+    overlap = _get_enclosing_overlap(importer, package_overlaps)
+    return overlap is not None and overlap == _get_enclosing_overlap(imported, package_overlaps)
+
+
+def _get_enclosing_overlap(name: str, overlaps: set[str]) -> str | None:
+    """
+    Return the overlap whose package contains the module (or is the module), if any.
+
+    The overlaps must be disjoint, so there is at most one. For example, given the overlaps
+    {"mypackage.one"}:
+
+        "mypackage.one"         -> "mypackage.one"
+        "mypackage.one.blue"    -> "mypackage.one"
+        "mypackage.two"         -> None
+    """
+    for candidate in _get_name_and_ancestors(name):
+        if candidate in overlaps:
+            return candidate
+    return None
+
+
 def _get_name_and_ancestors(name: str) -> Iterator[str]:
     """
     Yield the module name, followed by the names of each of its ancestors.
+
+    For example, "mypackage.one.blue" yields "mypackage.one.blue", "mypackage.one", "mypackage".
     """
     while True:
         yield name
