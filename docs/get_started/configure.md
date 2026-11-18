@@ -146,3 +146,44 @@ It's okay for [contract ids](#contract-ids) to be the same as long as they're in
 
     This is because Import Linter will reuse the same import graph across files, if the top-level
     configuration is the same.  
+
+## Splitting contracts while sharing settings
+
+Use `contract_files` to organize contracts by domain or ownership while defining root packages,
+graph options, and custom contract types once in a parent configuration:
+
+=== "TOML"
+
+    ```toml
+    [tool.importlinter]
+    root_package = "mypackage"
+    contract_files = ["architecture/layers.toml", "architecture/orders.toml"]
+    ```
+
+=== "INI"
+
+    ```ini
+    [importlinter]
+    root_package = mypackage
+    contract_files =
+        architecture/layers.ini
+        architecture/orders.ini
+    ```
+
+Referenced files contain ordinary [contract declarations](#contracts), without session settings.
+INI files do not need an `[importlinter]` header. Formats may be mixed; `.toml` selects TOML and other
+extensions select INI. To migrate, move complete contracts into these files and list their paths;
+continue running `lint-imports` with the parent configuration.
+
+Paths are literal local filenames relative to the selected parent filename's directory (also for
+symlinked parents); absolute paths are accepted. There is no glob or variable expansion, nesting,
+or remote retrieval. Inline contracts run first, followed by referenced files in declaration order.
+
+Each referenced file must contain contracts; the parent may contain only settings and references.
+Missing or invalid files, session settings in referenced files, and duplicate IDs within a file cause
+errors, even when selecting one contract. Unrelated tool configuration is ignored. Repeated references
+load once; a referenced file cannot also be passed independently or belong to two parents in one run.
+
+Use independent configurations when files need different settings. Both approaches reuse compatible
+graphs. For selection, qualify an ambiguous ID with its actual source filename, relative to the working
+directory: `lint-imports --contract=architecture/layers.toml:layers`.

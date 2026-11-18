@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -26,3 +27,11 @@ class UserOptions:
         return (self.session_options == other.session_options) and (
             self.contracts_options == other.contracts_options
         )
+
+
+@dataclass(frozen=True)
+class ConfigSource:
+    """Options and the file they were read from."""
+
+    filename: str | None
+    user_options: UserOptions
