@@ -17,8 +17,24 @@ Caching is used in the first step but not the second. For more information about
 ## Location of the cache
 
 Cache files are written, by default, to an `.import_linter_cache` directory
-in the current working directory. This directory can be changed by passing
-a different `cache_dir` argument e.g.:
+in the current working directory. To choose another directory, set `cache_dir`
+in your [top-level configuration](get_started/configure.md#top-level-configuration).
+Relative paths are resolved from the current working directory. If you lint several
+configuration files in one run, each file can specify its own cache directory.
+
+=== "INI"
+    ```ini
+    [importlinter]
+    cache_dir = .cache/import-linter
+    ```
+
+=== "TOML"
+    ```toml
+    [tool.importlinter]
+    cache_dir = ".cache/import-linter"
+    ```
+
+To override the configured directory for a run, pass `--cache-dir`:
 
 ```console
 lint-imports --cache-dir /path/to/cache

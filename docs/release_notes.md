@@ -1,5 +1,9 @@
 # Release notes
 
+## latest
+
+* Add a top-level `cache_dir` option to set the cache directory in a configuration file.
+
 ## 2.17 (2026-11-18)
 
 * Accept multiple configuration files as positional arguments to `lint-imports` / `import-linter lint`.

@@ -68,6 +68,8 @@ Or, with multiple root packages:
   The names of the Python packages to validate. This should be used in place of `root_package` if you want
   to analyse the imports of multiple packages, and is subject to the same requirements. (Either this or
   `root_package` is required.)
+- `cache_dir`:
+  The directory to use for [caching](../caching.md). Defaults to `.import_linter_cache` in the current working directory. (Optional.)
 - `include_external_packages`:
   Whether to include external packages when building the import graph. Unlike root packages, external packages are
   *not* statically analyzed, so no imports from external packages will be checked. However, imports *of* external

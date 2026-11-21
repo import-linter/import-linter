@@ -91,13 +91,13 @@ class TomlFileUserOptionReader(AbstractUserOptionReader):
 
         contracts = session_options.pop("contracts", [])
 
-        self._normalize_booleans(session_options)
+        self._normalize_booleans(session_options, skip=("cache_dir",))
         for contract in contracts:
             self._normalize_booleans(contract)
 
         return UserOptions(session_options=session_options, contracts_options=contracts)
 
-    def _normalize_booleans(self, data: dict) -> None:
+    def _normalize_booleans(self, data: dict, skip: tuple[str, ...] = ()) -> None:
         for key, value in data.items():
-            if isinstance(value, bool):
+            if isinstance(value, bool) and key not in skip:
                 data[key] = str(value)

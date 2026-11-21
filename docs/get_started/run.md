@@ -30,7 +30,7 @@ lint-imports
   filename and a colon, e.g. `--contract=path/to/config.ini:foo`. This option may be provided multiple
   times to check more than one contract. (Optional.)
 - `--cache-dir`:
-  The directory to use for caching. Defaults to `.import_linter_cache`. See [Caching](../caching.md). (Optional.)
+  Override the cache directory for all configuration files in this run. See [Caching](../caching.md). (Optional.)
 - `--no-cache`:
   Disable caching. See [Caching](../caching.md). (Optional.)
 - `--debug`:

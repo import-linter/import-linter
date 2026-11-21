@@ -842,6 +842,23 @@ class TestMultipleConfigFiles:
             """
         )
 
+    def test_equivalent_cache_directories_share_one_graph(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        builder = self._configure(
+            {
+                "main.ini": self._options(
+                    [{"type": "always_passes", "name": "Contract one"}], cache_dir="./cache"
+                ),
+                "extra.ini": self._options(
+                    [{"type": "always_passes", "name": "Contract two"}],
+                    cache_dir=str(tmp_path / "cache"),
+                ),
+            }
+        )
+
+        assert lint_imports(config_filenames=("main.ini", "extra.ini")) == SUCCESS
+        assert [build["cache_dir"] for build in builder.builds] == ["./cache"]
+
     def test_builds_one_graph_per_distinct_top_level_config(self):
         # The import from mypackage.a to mypackage.b is only in the graph that
         # includes type checking imports, so only the first file's contract is broken.

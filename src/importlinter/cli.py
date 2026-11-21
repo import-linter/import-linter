@@ -230,7 +230,7 @@ def lint_imports(
     Args:
         config_filename:    the filename to use to parse user options.
         limit_to_contracts: if supplied, only lint the contracts with the supplied ids.
-        cache_dir:          the directory to use for caching, defaults to '.import_linter_cache'.
+        cache_dir:          override the cache directory specified in the configuration.
         no_cache:           if True, disable caching.
         is_debug_mode:      whether debugging should be turned on. In debug mode, exceptions are
                             not swallowed at the top level, so the stack trace can be seen.
