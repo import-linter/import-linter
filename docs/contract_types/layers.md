@@ -99,7 +99,7 @@ way around.
         mypackage
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
     name = "My layers contract"
@@ -111,6 +111,30 @@ way around.
     ]
 
     [[tool.importlinter.contracts]]
+    name = "My layers contract (using containers)"
+    type = "layers"
+    layers = [
+        "high",
+        "medium",
+        "low",
+    ]
+    containers = [
+        "mypackage",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
+    name = "My layers contract"
+    type = "layers"
+    layers = [
+        "mypackage.high",
+        "mypackage.medium",
+        "mypackage.low",
+    ]
+
+    [[contracts]]
     name = "My layers contract (using containers)"
     type = "layers"
     layers = [
@@ -154,9 +178,21 @@ Here's how the architecture shown above could be checked using a `layers` contra
         mypackage.low
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
+    name = "My layers contract"
+    type = "layers"
+    layers = [
+        "mypackage.high",
+        "mypackage.medium",
+        "mypackage.low",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
     name = "My layers contract"
     type = "layers"
     layers = [
@@ -193,7 +229,7 @@ consisting of three packages `high`, `medium` and `low`, in a directory that doe
         low
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [tool.importlinter]
     root_packages = [
@@ -203,6 +239,24 @@ consisting of three packages `high`, `medium` and `low`, in a directory that doe
     ]
 
     [[tool.importlinter.contracts]]
+    name = "My three-tier layers contract (multiple root packages)"
+    type = "layers"
+    layers = [
+        "high",
+        "medium",
+        "low",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    root_packages = [
+        "high",
+        "medium",
+        "low",
+    ]
+
+    [[contracts]]
     name = "My three-tier layers contract (multiple root packages)"
     type = "layers"
     layers = [
@@ -234,9 +288,24 @@ Here's a contract that layers `mypackage.high`, `mypackage.medium` and `mypackag
         mypackage
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
+    name = "My layers contract"
+    type = "layers"
+    layers = [
+        "high",
+        "medium",
+        "low",
+    ]
+    containers = [
+        "mypackage",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
     name = "My layers contract"
     type = "layers"
     layers = [
@@ -268,9 +337,26 @@ Containers are particularly useful if you want to specify a recurring pattern of
         mypackage.baz
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
+    name = "My multiple package layers contract"
+    type = "layers"
+    layers = [
+        "high",
+        "(medium)",
+        "low",
+    ]
+    containers = [
+        "mypackage.foo",
+        "mypackage.bar",
+        "mypackage.baz",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
     name = "My multiple package layers contract"
     type = "layers"
     layers = [
@@ -316,9 +402,30 @@ will fail. Any such modules that shouldn't cause a failure can be added to an `e
       utils
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
+    name = "My multiple package layers contract"
+    type = "layers"
+    layers = [
+        "high",
+        "(medium)",
+        "low",
+    ]
+    containers = [
+        "mypackage.foo",
+        "mypackage.bar",
+        "mypackage.baz",
+    ]
+    exhaustive = true
+    exhaustive_ignores = [
+        "utils",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
     name = "My multiple package layers contract"
     type = "layers"
     layers = [
@@ -363,9 +470,21 @@ An architecture like this can be checked by listing the siblings on the same lin
       mypackage.low
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
+    name = "Contract with sibling modules (independent)"
+    type = "layers"
+    layers = [
+        "mypackage.high",
+        "mypackage.blue | mypackage.green | mypackage.yellow",
+        "mypackage.low",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
     name = "Contract with sibling modules (independent)"
     type = "layers"
     layers = [
@@ -393,9 +512,21 @@ To allow siblings to depend on each other, use colons instead of pipes to separa
       mypackage.low
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
+    name = "Contract with sibling modules (independent)"
+    type = "layers"
+    layers = [
+        "mypackage.high",
+        "mypackage.blue : mypackage.green : mypackage.yellow",
+        "mypackage.low",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
     name = "Contract with sibling modules (independent)"
     type = "layers"
     layers = [
@@ -419,9 +550,22 @@ Note: you are not allowed to mix different kinds of separators on the same line.
       mypackage.low
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
+    name = "Invalid contract"
+    type = "layers"
+    layers = [
+        "mypackage.high",
+        # The line below is invalid, as it mixes separators.
+        "mypackage.blue | mypackage.green : mypackage.yellow",
+        "mypackage.low",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
     name = "Invalid contract"
     type = "layers"
     layers = [

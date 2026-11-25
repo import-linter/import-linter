@@ -96,9 +96,22 @@ If none of the built in contract types meets your needs, you can define a custom
         Migration guide: https://docs.example.com/numbers-migration
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
+    name = "Colors should not use the legacy numbers API"
+    type = "forbidden"
+    source_modules = ["mypackage.colors"]
+    forbidden_modules = ["mypackage.legacy.numbers"]
+    broken_contract_guidance = """
+    Use mypackage.numbers instead - it's the supported top-level interface.
+    Migration guide: https://docs.example.com/numbers-migration
+    """
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
     name = "Colors should not use the legacy numbers API"
     type = "forbidden"
     source_modules = ["mypackage.colors"]

@@ -24,6 +24,7 @@
 * [kogriv](https://github.com/kogriv)
 * [Lincoln Puzey](https://github.com/LincolnPuzey)
 * [Łukasz Skarżyński](https://github.com/skarzi)
+* [lyn1dev](https://github.com/lyn1dev)
 * [Matt Wang](https://github.com/mattwang44)
 * [Matthew Gamble](https://github.com/mwgamble)
 * [Mint0424](https://github.com/Mint0424)

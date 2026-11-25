@@ -111,7 +111,7 @@ Supports <a href="index.md#wildcards">wildcards</a>.</td>
     allowed_importers = foo.allowed
     ```
 
-=== "TOML"
+=== "pyproject.toml"
 
     ```toml
     [tool.importlinter]
@@ -156,6 +156,54 @@ Supports <a href="index.md#wildcards">wildcards</a>.</td>
     include_external_packages = true
     
     [[tool.importlinter.contracts]]
+    name = "Boto can only be imported by foo.allowed"
+    type = "protected"
+    protected_modules = ["boto"]
+    allowed_importers = ["foo.allowed"]
+    ```
+
+=== "importlinter.toml"
+
+    ```toml
+    root_package = "foo"
+
+    [[contracts]]
+    name = "Simple protected contract"
+    type = "protected"
+    protected_modules = [
+        "foo.protected",
+        "foo.also_protected",
+    ]
+    allowed_importers = [
+        "foo.allowed",
+        "foo.also_allowed",
+    ]
+    ```
+
+    ```toml
+    root_package = "foo"
+
+    [[contracts]]
+    name = "Models can only be imported by colors direct descendant"
+    type = "protected"
+    protected_modules = [
+        "foo.**.models",
+    ]
+    allowed_importers = [
+        "foo.colors.*",
+    ]
+    ignore_imports = [
+        "foo.one.green -> foo.one.models",
+        "foo.colors.red.bar -> foo.three.models",
+    ]
+    as_packages = false
+    ```
+
+    ```toml
+    root_package = "foo"
+    include_external_packages = true
+    
+    [[contracts]]
     name = "Boto can only be imported by foo.allowed"
     type = "protected"
     protected_modules = ["boto"]

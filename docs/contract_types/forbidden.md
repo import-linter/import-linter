@@ -135,7 +135,7 @@ Supports <a href="index.md#wildcards">wildcards</a>.</td>
       foo.one.green -> sqlalchemy
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [tool.importlinter]
     root_package = "foo"
@@ -191,6 +191,76 @@ Supports <a href="index.md#wildcards">wildcards</a>.</td>
     include_external_packages = true
 
     [[tool.importlinter.contracts]]
+    name = "My forbidden contract (internal and external packages)"
+    type = "forbidden"
+    source_modules = [
+        "foo.one",
+        "foo.two",
+    ]
+    forbidden_modules = [
+        "foo.three",
+        "django",
+        "requests",
+    ]
+    ignore_imports = [
+        "foo.one.green -> sqlalchemy",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    root_package = "foo"
+
+    [[contracts]]
+    name = "My forbidden contract (internal packages only)"
+    type = "forbidden"
+    source_modules = [
+        "foo.one",
+        "foo.two",
+        "foo.three.blue",
+    ]
+    forbidden_modules = [
+        "foo.four",
+        "foo.five.green",
+    ]
+    ignore_imports = [
+        "foo.one.green -> foo.utils",
+        "foo.two -> foo.four",
+    ]
+    
+    [[contracts]]
+    # This contract prevents foo.one from importing
+    # anything from its siblings.
+    name = "Forbidden siblings contract"
+    type = "forbidden"
+    source_modules = [
+      "foo.one",
+    ]
+    forbidden_modules = [
+      "foo.*",
+    ]
+
+    [[contracts]]
+    # This contract prevents foo.one from importing
+    # anything from its descendants.
+    # Note as_packages must be False, otherwise this contract would have no effect
+    # due to the rules around overlapping modules.
+    name = "Forbidden descendants contract"
+    type = "forbidden"
+    source_modules = [
+      "foo.one",
+    ]
+    forbidden_modules = [
+      "foo.one.**",
+    ]
+    as_packages = false
+    ```
+
+    ```toml
+    root_package = "foo"
+    include_external_packages = true
+
+    [[contracts]]
     name = "My forbidden contract (internal and external packages)"
     type = "forbidden"
     source_modules = [

@@ -1,0 +1,11 @@
+root_package = "testpackage"
+
+[[contracts]]
+id = "test-independence"
+name = "Test independence contract"
+type = "independence"
+modules = ["testpackage.high.blue", "testpackage.high.green"]
+ignore_imports = [
+    "testpackage.utils -> testpackage.high.green",
+    "testpackage.*.blue.* -> testpackage.indirect.*",
+]

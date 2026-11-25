@@ -9,6 +9,8 @@ If not specified over the command line, Import Linter will look in the current d
 - `setup.cfg` (INI format)
 - `.importlinter` (INI format)
 - `pyproject.toml` (TOML format)
+- `.importlinter.toml` (TOML format)
+- `importlinter.toml` (TOML format)
 
 ## Top level configuration
 
@@ -21,9 +23,17 @@ If not specified over the command line, Import Linter will look in the current d
     exclude_type_checking_imports = True
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [tool.importlinter]
+    root_package = "mypackage"
+    # Optional:
+    include_external_packages = true
+    exclude_type_checking_imports = true
+    ```
+
+=== "importlinter.toml"
+    ```toml
     root_package = "mypackage"
     # Optional:
     include_external_packages = true
@@ -43,9 +53,17 @@ Or, with multiple root packages:
     exclude_type_checking_imports = True
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [tool.importlinter]
+    root_packages = [ "packageone", "packagetwo" ]
+    # Optional:
+    include_external_packages = true
+    exclude_type_checking_imports = true
+    ```
+
+=== "importlinter.toml"
+    ```toml
     root_packages = [ "packageone", "packagetwo" ]
     # Optional:
     include_external_packages = true
@@ -95,7 +113,7 @@ Additionally, you will want to define one or more [contracts](../contract_types/
     # (additional options)
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
     name = "Contract One"
@@ -103,6 +121,20 @@ Additionally, you will want to define one or more [contracts](../contract_types/
     # (additional options)
 
     [[tool.importlinter.contracts]]
+    id = "two"  # Optional
+    name = "Contract Two"
+    type = "another_contract_type"
+    # (additional options)
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
+    name = "Contract One"
+    type = "some_contract_type"
+    # (additional options)
+
+    [[contracts]]
     id = "two"  # Optional
     name = "Contract Two"
     type = "another_contract_type"

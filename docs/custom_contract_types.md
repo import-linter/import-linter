@@ -122,9 +122,17 @@ onto the Python path of your custom class:
         forbidden_import: somepackage.contracts.ForbiddenImportContract
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [tool.importlinter]
+    root_package = "mypackage"
+    contract_types = [
+        "forbidden_import: somepackage.contracts.ForbiddenImportContract"
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
     root_package = "mypackage"
     contract_types = [
         "forbidden_import: somepackage.contracts.ForbiddenImportContract"
@@ -146,9 +154,18 @@ You may now use the type name defined in the previous step to define a contract:
     imported = mypackage.bar
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
+    name = "My custom contract"
+    type = "forbidden_import"
+    importer = "mypackage.foo"
+    imported = "mypackage.bar"
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
     name = "My custom contract"
     type = "forbidden_import"
     importer = "mypackage.foo"
