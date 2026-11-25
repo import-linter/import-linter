@@ -1,6 +1,7 @@
 import abc
 import configparser
 import tomllib
+from pathlib import Path
 from typing import Any
 
 from importlinter.application import file_finding
@@ -77,15 +78,17 @@ class TomlFileUserOptionReader(AbstractUserOptionReader):
     Reader that looks for and parses the contents of TOML files.
     """
 
-    section_name = "importlinter"
-    potential_config_filenames = ["pyproject.toml"]
+    potential_config_filenames = [
+        "pyproject.toml",
+        ".importlinter.toml",
+        "importlinter.toml",
+    ]
 
     def _read_config_filename(self, config_filename: str) -> UserOptions | None:
         file_contents = settings.FILE_SYSTEM.read(config_filename, encoding="utf-8")
         data = tomllib.loads(file_contents)
 
-        tool_data = data.get("tool", {})
-        session_options = tool_data.get("importlinter", {})
+        session_options = self._extract_session_options(config_filename, data)
         if not session_options:
             return None
 
@@ -96,6 +99,16 @@ class TomlFileUserOptionReader(AbstractUserOptionReader):
             self._normalize_booleans(contract)
 
         return UserOptions(session_options=session_options, contracts_options=contracts)
+
+    @staticmethod
+    def _extract_session_options(config_filename: str, data: dict[str, Any]) -> dict[str, Any]:
+        tool_data = data.get("tool", {})
+        if isinstance(tool_data, dict) and "importlinter" in tool_data:
+            importlinter_data = tool_data["importlinter"]
+            return importlinter_data if isinstance(importlinter_data, dict) else {}
+        if Path(config_filename).name == "pyproject.toml":
+            return {}
+        return data
 
     def _normalize_booleans(self, data: dict) -> None:
         for key, value in data.items():

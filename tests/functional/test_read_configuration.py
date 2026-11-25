@@ -49,6 +49,49 @@ import importlinter.adapters.filesystem
                 ],
             ),
         ),
+        (
+            "testpackage",
+            ".setup.toml",
+            dict(
+                session_options={"root_packages": ["testpackage"]},
+                contracts_options=[
+                    {
+                        "name": "Test independence contract",
+                        "type": "independence",
+                        "modules": [
+                            "testpackage.high.blue",
+                            "testpackage.high.green",
+                        ],
+                        "ignore_imports": [
+                            "testpackage.utils -> testpackage.high.green",
+                            "testpackage.*.blue.* -> testpackage.indirect.*",
+                        ],
+                    }
+                ],
+            ),
+        ),
+        (
+            "testpackage",
+            "importlinter.toml",
+            dict(
+                session_options={"root_packages": ["testpackage"]},
+                contracts_options=[
+                    {
+                        "name": "Test independence contract",
+                        "id": "test-independence",
+                        "type": "independence",
+                        "modules": [
+                            "testpackage.high.blue",
+                            "testpackage.high.green",
+                        ],
+                        "ignore_imports": [
+                            "testpackage.utils -> testpackage.high.green",
+                            "testpackage.*.blue.* -> testpackage.indirect.*",
+                        ],
+                    }
+                ],
+            ),
+        ),
     ),
 )
 def test_read_config(config_directory, config_file, expected):
@@ -58,6 +101,38 @@ def test_read_config(config_directory, config_file, expected):
     result = api.read_configuration(config_filename)
 
     assert result == expected
+
+
+@pytest.mark.parametrize("filename", (".importlinter.toml", "importlinter.toml"))
+def test_read_config_default_toml_filenames(tmp_path, monkeypatch, filename):
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "testpackage"\n', encoding="utf-8")
+    (tmp_path / filename).write_text(
+        'root_package = "testpackage"\n\n'
+        "[[contracts]]\n"
+        'id = "test-independence"\n'
+        'name = "Test independence contract"\n'
+        'type = "independence"\n'
+        'modules = ["testpackage.high.blue", "testpackage.high.green"]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = api.read_configuration()
+
+    assert result == dict(
+        session_options={"root_packages": ["testpackage"]},
+        contracts_options=[
+            {
+                "id": "test-independence",
+                "name": "Test independence contract",
+                "type": "independence",
+                "modules": [
+                    "testpackage.high.blue",
+                    "testpackage.high.green",
+                ],
+            }
+        ],
+    )
 
 
 # TOML is always encoded in UTF-8, no matter the platform. However, open() selects the default

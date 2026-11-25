@@ -144,6 +144,13 @@ def test_respects_passed_filename(passed_filename, expected_foo_value):
         ),
         (
             """
+            # Flat keys in pyproject.toml should be ignored without [tool.importlinter].
+            root_package = "mypackage"
+            """,
+            None,
+        ),
+        (
+            """
             [something]
             foo = 1
             bar = "hello"
@@ -210,3 +217,155 @@ def test_toml_file_reader(contents, expected_options):
 
     options = TomlFileUserOptionReader().read_options()
     assert expected_options == options
+
+
+@pytest.mark.parametrize("filename", (".importlinter.toml", "importlinter.toml"))
+@pytest.mark.parametrize(
+    "contents, expected_options",
+    (
+        ("# Empty TOML file.", None),
+        (
+            """
+            [tool.importlinter]
+            """,
+            None,
+        ),
+        (
+            """
+            foo = "hello"
+            include_external_packages = true
+            exclude_type_checking_imports = false
+
+            [[contracts]]
+            id = "contract-one"
+            name = "Contract One"
+            key = "value"
+            as_packages = false
+            multiple_values = [
+                "one",
+                "two",
+                "three",
+                "foo.one -> foo.two",
+            ]
+
+            [[contracts]]
+            name = "Contract Two"
+            baz = 3
+            """,
+            UserOptions(
+                session_options={
+                    "foo": "hello",
+                    "include_external_packages": "True",
+                    "exclude_type_checking_imports": "False",
+                },
+                contracts_options=[
+                    {
+                        "name": "Contract One",
+                        "id": "contract-one",
+                        "key": "value",
+                        "as_packages": "False",
+                        "multiple_values": [
+                            "one",
+                            "two",
+                            "three",
+                            "foo.one -> foo.two",
+                        ],
+                    },
+                    {"name": "Contract Two", "baz": 3},
+                ],
+            ),
+        ),
+        (
+            """
+            [tool.importlinter]
+            foo = "hello"
+            include_external_packages = true
+
+            [[tool.importlinter.contracts]]
+            name = "Contract One"
+            baz = 3
+            """,
+            UserOptions(
+                session_options={
+                    "foo": "hello",
+                    "include_external_packages": "True",
+                },
+                contracts_options=[
+                    {"name": "Contract One", "baz": 3},
+                ],
+            ),
+        ),
+    ),
+)
+def test_dedicated_toml_file_reader(filename, contents, expected_options):
+    settings.configure(
+        FILE_SYSTEM=FakeFileSystem(
+            content_map={f"/path/to/folder/{filename}": contents},
+            working_directory="/path/to/folder",
+        )
+    )
+
+    options = TomlFileUserOptionReader().read_options()
+    assert expected_options == options
+
+
+@pytest.mark.parametrize("filename", (".importlinter.toml", "importlinter.toml"))
+def test_toml_reader_falls_back_from_pyproject_without_importlinter_section(filename):
+    settings.configure(
+        FILE_SYSTEM=FakeFileSystem(
+            content_map={
+                "/path/to/folder/pyproject.toml": """
+                    [project]
+                    name = "mypackage"
+                """,
+                f"/path/to/folder/{filename}": """
+                    root_package = "mypackage"
+                """,
+            },
+            working_directory="/path/to/folder",
+        )
+    )
+
+    options = TomlFileUserOptionReader().read_options()
+    assert options == UserOptions(
+        session_options={"root_package": "mypackage"},
+        contracts_options=[],
+    )
+
+
+@pytest.mark.parametrize(
+    "passed_filename, expected_foo_value",
+    (
+        ("flat.toml", "blue"),
+        ("nested.toml", "purple"),
+        ("nonexistent.toml", FileNotFoundError()),
+    ),
+)
+def test_toml_reader_respects_passed_filename(passed_filename, expected_foo_value):
+    settings.configure(
+        FILE_SYSTEM=FakeFileSystem(
+            content_map={
+                "/path/to/folder/flat.toml": """
+                    foo = "blue"
+                """,
+                "/path/to/folder/nested.toml": """
+                    [tool.importlinter]
+                    foo = "purple"
+                """,
+            },
+            working_directory="/path/to/folder",
+        )
+    )
+    reader = TomlFileUserOptionReader()
+
+    if isinstance(expected_foo_value, Exception):
+        with pytest.raises(
+            expected_foo_value.__class__, match=f"Could not find {passed_filename}."
+        ):
+            reader.read_options(config_filename=passed_filename)
+    else:
+        options = reader.read_options(config_filename=passed_filename)
+        assert options == UserOptions(
+            session_options={"foo": expected_foo_value},
+            contracts_options=[],
+        )

@@ -92,6 +92,8 @@ def lint_imports_command(**kwargs) -> None:
         - setup.cfg (INI format)
         - .importlinter (INI format)
         - pyproject.toml (TOML format)
+        - .importlinter.toml (TOML format)
+        - importlinter.toml (TOML format)
     """
     _run_check(**kwargs)
 
@@ -117,6 +119,8 @@ def lint_command(**kwargs) -> None:
         - setup.cfg (INI format)
         - .importlinter (INI format)
         - pyproject.toml (TOML format)
+        - .importlinter.toml (TOML format)
+        - importlinter.toml (TOML format)
     """
     _run_check(**kwargs)
 

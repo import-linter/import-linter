@@ -85,7 +85,7 @@ Supports <a href="index.md#wildcards">wildcards</a>.</td>
         mypackage.foo.blue.one -> mypackage.foo.green.two
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [tool.importlinter]
     root_package = "mypackage"
@@ -96,6 +96,32 @@ Supports <a href="index.md#wildcards">wildcards</a>.</td>
     ancestors = ["mypackage"]
 
     [[tool.importlinter.contracts]]
+    name = "Acyclic siblings contract with more options"
+    type = "acyclic_siblings"
+    ancestors = [
+        "mypackage.foo",
+        "mypackage.bar.*",
+    ]
+    depth = 5
+    skip_descendants = [
+        "mypackage.foo.purple",
+        "mypackage.foo.**.orange",
+    ]
+    ignore_imports = [
+        "mypackage.foo.blue.one -> mypackage.foo.green.two",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    root_package = "mypackage"
+
+    [[contracts]]
+    name = "Minimal acyclic siblings contract"
+    type = "acyclic_siblings"
+    ancestors = ["mypackage"]
+
+    [[contracts]]
     name = "Acyclic siblings contract with more options"
     type = "acyclic_siblings"
     ancestors = [

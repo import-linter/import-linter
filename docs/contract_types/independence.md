@@ -60,9 +60,25 @@ Supports <a href="index.md#wildcards">wildcards</a>.</td>
         mypackage.baz.blue -> mypackage.foo.purple
     ```
 
-=== "TOML"
+=== "pyproject.toml"
     ```toml
     [[tool.importlinter.contracts]]
+    name = "My independence contract"
+    type = "independence"
+    modules = [
+        "mypackage.foo",
+        "mypackage.bar",
+        "mypackage.baz",
+    ]
+    ignore_imports = [
+        "mypackage.bar.green -> mypackage.utils",
+        "mypackage.baz.blue -> mypackage.foo.purple",
+    ]
+    ```
+
+=== "importlinter.toml"
+    ```toml
+    [[contracts]]
     name = "My independence contract"
     type = "independence"
     modules = [
