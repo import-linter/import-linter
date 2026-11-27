@@ -5,7 +5,7 @@ from importlinter.adapters.user_options import (
     TomlFileUserOptionReader,
 )
 from importlinter.application.app_config import settings
-from importlinter.application.user_options import UserOptions
+from importlinter.application.user_options import InvalidUserOptions, UserOptions
 from tests.adapters.filesystem import FakeFileSystem
 
 
@@ -210,3 +210,30 @@ def test_toml_file_reader(contents, expected_options):
 
     options = TomlFileUserOptionReader().read_options()
     assert expected_options == options
+
+
+@pytest.mark.parametrize(
+    "reader_class, filename",
+    (
+        (IniFileUserOptionReader, ".importlinter"),
+        (TomlFileUserOptionReader, "pyproject.toml"),
+    ),
+)
+def test_reader_wraps_unicode_decode_error(monkeypatch, reader_class, filename):
+    settings.configure(
+        FILE_SYSTEM=FakeFileSystem(
+            content_map={f"/path/to/folder/{filename}": ""},
+            working_directory="/path/to/folder",
+        )
+    )
+
+    def raise_decode_error(self, file_name, encoding=None):
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+    monkeypatch.setattr(FakeFileSystem, "read", raise_decode_error)
+
+    with pytest.raises(
+        InvalidUserOptions,
+        match=r"Could not decode configuration file '/path/to/folder/" + filename + r"' as UTF-8",
+    ):
+        reader_class().read_options()

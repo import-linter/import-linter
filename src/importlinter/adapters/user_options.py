@@ -6,7 +6,7 @@ from typing import Any
 from importlinter.application import file_finding
 from importlinter.application.app_config import settings
 from importlinter.application.ports import user_options as ports
-from importlinter.application.user_options import UserOptions
+from importlinter.application.user_options import InvalidUserOptions, UserOptions
 
 
 class AbstractUserOptionReader(ports.UserOptionReader):
@@ -24,7 +24,12 @@ class AbstractUserOptionReader(ports.UserOptionReader):
                 return None
 
         for config_filename in config_filenames:
-            options = self._read_config_filename(config_filename)
+            try:
+                options = self._read_config_filename(config_filename)
+            except UnicodeDecodeError as e:
+                raise InvalidUserOptions(
+                    f"Could not decode configuration file '{config_filename}' as UTF-8: {e.reason}."
+                ) from e
             if options:
                 return options
 
@@ -45,7 +50,7 @@ class IniFileUserOptionReader(AbstractUserOptionReader):
 
     def _read_config_filename(self, config_filename: str) -> UserOptions | None:
         config = configparser.ConfigParser()
-        file_contents = settings.FILE_SYSTEM.read(config_filename)
+        file_contents = settings.FILE_SYSTEM.read(config_filename, encoding="utf-8")
         config.read_string(file_contents)
         if self.section_name in config.sections():
             return self._build_from_config(config)

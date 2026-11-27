@@ -1,5 +1,9 @@
 # Release notes
 
+## latest
+
+* Read INI configuration files (`setup.cfg`, `.importlinter`) as UTF-8 and report unreadable configuration files with a clear error message.
+
 ## 2.17 (2026-11-18)
 
 * Accept multiple configuration files as positional arguments to `lint-imports` / `import-linter lint`.
