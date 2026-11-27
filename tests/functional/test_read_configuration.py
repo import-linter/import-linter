@@ -6,6 +6,7 @@ import importlinter
 from importlinter import api
 import importlinter.adapters
 import importlinter.adapters.filesystem
+from importlinter.application.user_options import InvalidUserOptions
 
 
 @pytest.mark.parametrize(
@@ -87,3 +88,42 @@ def test_read_config_toml_utf8_on_windows(monkeypatch):
     expected = "Cönträct tö tést µnícðde pœrs€ng"
 
     assert result == expected
+
+
+def test_read_config_ini_utf8_on_windows(monkeypatch, tmp_path):
+    default_encoding = "cp1252"
+    config_file = tmp_path / ".importlinter"
+    config_file.write_text(
+        "[importlinter]\n"
+        "root_package = testpackage\n"
+        "[importlinter:contract:c1]\n"
+        "name = Cönträct č 😂\n"
+        "type = forbidden\n"
+        "source_modules = testpackage.high\n"
+        "forbidden_modules = testpackage.low\n",
+        encoding="utf-8",
+    )
+
+    def mock_read(self, file_name, encoding=None) -> str:
+        with open(file_name, encoding=encoding or default_encoding) as file:
+            return file.read()
+
+    monkeypatch.setattr(importlinter.adapters.filesystem.FileSystem, "read", mock_read)
+
+    config_result = api.read_configuration(str(config_file))
+    assert config_result["contracts_options"][0]["name"] == "Cönträct č 😂"
+
+
+@pytest.mark.parametrize(
+    "filename",
+    (".importlinter", "pyproject.toml"),
+)
+def test_read_config_invalid_utf8_raises_clear_error(tmp_path, filename):
+    config_file = tmp_path / filename
+    config_file.write_bytes(b"[importlinter]\nname = '\xff'\n")
+
+    with pytest.raises(
+        InvalidUserOptions,
+        match="Could not decode configuration file",
+    ):
+        api.read_configuration(str(config_file))
